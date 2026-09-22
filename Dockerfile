@@ -5,8 +5,7 @@ RUN apk add --no-cache python3 py3-pip py3-flask bash curl wget
 WORKDIR /app
 COPY . /app
 
-RUN mkdir -p /data && \
-    wget -O /data/server.jar https://api.papermc.io/v2/projects/paper/versions/1.20.4/builds/497/downloads/paper-1.20.4-497.jar
+RUN mkdir -p /data
 
 EXPOSE 8080 25565
 
