@@ -1,10 +1,13 @@
-FROM itzg/minecraft-server:latest
+FROM eclipse-temurin:21-jre-alpine
 
-ENV EULA=TRUE
-ENV TYPE=PAPER
-ENV VERSION=1.20.1
-ENV MEMORY=1G
-ENV ONLINE_MODE=FALSE
-ENV ENABLE_AUTOPAUSE=TRUE
+RUN apk add --no-cache python3 py3-pip py3-flask bash curl wget
 
-EXPOSE 25565
+WORKDIR /app
+COPY . /app
+
+RUN mkdir -p /data && \
+    wget -O /data/server.jar https://api.papermc.io/v2/projects/paper/versions/1.20.4/builds/497/downloads/paper-1.20.4-497.jar
+
+EXPOSE 8080 25565
+
+CMD ["python3", "main.py"]
