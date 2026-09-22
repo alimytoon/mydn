@@ -1,48 +1,31 @@
 import os
 import subprocess
-from flask import Flask, render_template_string, request, jsonify
+import urllib.request
+from flask import Flask, render_template_string, jsonify
 
 app = Flask(__name__)
 
+# ساخت پوشه داده‌ها
 os.makedirs('/data', exist_ok=True)
+
+# دانلود خودکار فایل سرور در صورت عدم وجود (به دلیل دیسک Volume)
+JAR_PATH = '/data/server.jar'
+if not os.path.exists(JAR_PATH):
+    print("در حال دانلود فایل سرور ماینکرافت...")
+    url = "https://api.papermc.io/v2/projects/paper/versions/1.20.4/builds/497/downloads/paper-1.20.4-497.jar"
+    urllib.request.urlretrieve(url, JAR_PATH)
+    print("دانلود تکمیل شد.")
+
+# تایید قوانین EULA
 with open('/data/eula.txt', 'w') as f:
     f.write('eula=true\n')
 
+# تنظیمات اولیه سرور
 if not os.path.exists('/data/server.properties'):
     with open('/data/server.properties', 'w') as f:
         f.write('online-mode=false\nserver-port=25565\nmotd=My Railway Minecraft Server\n')
 
 mc_process = None
-
-@app.route('/')
-def home():
-    return render_template_string(HTML_TEMPLATE)
-
-@app.route('/api/status')
-def status():
-    global mc_process
-    running = mc_process is not None and mc_process.poll() is None
-    return jsonify({"status": "ONLINE" if running else "OFFLINE"})
-
-@app.route('/api/start', methods=['POST'])
-def start_server():
-    global mc_process
-    if mc_process is None or mc_process.poll() is not None:
-        mc_process = subprocess.Popen(
-            ['java', '-Xmx1024M', '-Xms512M', '-jar', 'server.jar', 'nogui'],
-            cwd='/data'
-        )
-        return jsonify({"message": "سرور در حال روشن شدن است..."})
-    return jsonify({"message": "سرور از قبل روشن است."})
-
-@app.route('/api/stop', methods=['POST'])
-def stop_server():
-    global mc_process
-    if mc_process and mc_process.poll() is None:
-        mc_process.terminate()
-        mc_process = None
-        return jsonify({"message": "سرور خاموش شد."})
-    return jsonify({"message": "سرور خاموش است."})
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -97,5 +80,38 @@ HTML_TEMPLATE = """
 </html>
 """
 
+@app.route('/')
+def home():
+    return render_template_string(HTML_TEMPLATE)
+
+@app.route('/api/status')
+def status():
+    global mc_process
+    running = mc_process is not None and mc_process.poll() is None
+    return jsonify({"status": "ONLINE" if running else "OFFLINE"})
+
+@app.route('/api/start', methods=['POST'])
+def start_server():
+    global mc_process
+    if mc_process is None or mc_process.poll() is not None:
+        if not os.path.exists(JAR_PATH):
+            return jsonify({"message": "فایل server.jar یافت نشد. در حال دریافت..."})
+        mc_process = subprocess.Popen(
+            ['java', '-Xmx1024M', '-Xms512M', '-jar', 'server.jar', 'nogui'],
+            cwd='/data'
+        )
+        return jsonify({"message": "سرور در حال روشن شدن است..."})
+    return jsonify({"message": "سرور از قبل روشن است."})
+
+@app.route('/api/stop', methods=['POST'])
+def stop_server():
+    global mc_process
+    if mc_process and mc_process.poll() is None:
+        mc_process.terminate()
+        mc_process = None
+        return jsonify({"message": "سرور خاموش شد."})
+    return jsonify({"message": "سرور خاموش است."})
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+    port = int(os.environ.get('PORT', 8080))
+    app.run(host='0.0.0.0', port=port)
