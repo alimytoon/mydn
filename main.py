@@ -1,20 +1,30 @@
 import os
+import json
 import subprocess
 import urllib.request
 from flask import Flask, render_template_string, jsonify
 
 app = Flask(__name__)
 
-# ساخت پوشه داده‌ها
 os.makedirs('/data', exist_ok=True)
-
-# دانلود خودکار فایل سرور در صورت عدم وجود (به دلیل دیسک Volume)
 JAR_PATH = '/data/server.jar'
+
+# دانلود هوشمند آخرین نسخه سالم سرور ماینکرافت
 if not os.path.exists(JAR_PATH):
-    print("در حال دانلود فایل سرور ماینکرافت...")
-    url = "https://api.papermc.io/v2/projects/paper/versions/1.20.4/builds/497/downloads/paper-1.20.4-497.jar"
-    urllib.request.urlretrieve(url, JAR_PATH)
-    print("دانلود تکمیل شد.")
+    try:
+        print("در حال استعلام آخرین نسخه سرور ماینکرافت...")
+        api_url = "https://api.papermc.io/v2/projects/paper/versions/1.20.4"
+        req = urllib.request.Request(api_url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req) as response:
+            data = json.loads(response.read().decode())
+            latest_build = data['builds'][-1]
+            
+        download_url = f"https://api.papermc.io/v2/projects/paper/versions/1.20.4/builds/{latest_build}/downloads/paper-1.20.4-{latest_build}.jar"
+        print(f"در حال دانلود PaperMC نسخه 1.20.4 (بیلد {latest_build})...")
+        urllib.request.urlretrieve(download_url, JAR_PATH)
+        print("دانلود سرور با موفقیت انجام شد.")
+    except Exception as e:
+        print(f"خطا در دانلود خودکار: {e}")
 
 # تایید قوانین EULA
 with open('/data/eula.txt', 'w') as f:
@@ -95,7 +105,7 @@ def start_server():
     global mc_process
     if mc_process is None or mc_process.poll() is not None:
         if not os.path.exists(JAR_PATH):
-            return jsonify({"message": "فایل server.jar یافت نشد. در حال دریافت..."})
+            return jsonify({"message": "فایل سرور موجود نیست. لطفا چند لحظه صبر کنید..."})
         mc_process = subprocess.Popen(
             ['java', '-Xmx1024M', '-Xms512M', '-jar', 'server.jar', 'nogui'],
             cwd='/data'
